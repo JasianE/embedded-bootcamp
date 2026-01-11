@@ -49,6 +49,9 @@
 uint8_t txBuf[3];
 uint8_t rxBuf[3];
 uint16_t adc_value;
+uint32_t ADC_MAX = 1023U; //max because ADC has 10 bits 2^10 = 1024, -1 = 1023
+uint32_t PWM_MAX = 999U; //tim ARR
+uint32_t PWM_MIN = 0U;
 
 /* USER CODE END PV */
 
@@ -95,6 +98,9 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  //Sends the bits 00000001 10000000 00000000
+  //Necessary to configure ADC
+  //
   txBuf[0] = 0x01;
   txBuf[1] = 0x80;
   txBuf[2] = 0x00;
@@ -106,15 +112,17 @@ int main(void)
   while (1)
   {
 	  HAL_GPIO_WritePin(adc_GPIO_Port, adc_Pin, GPIO_PIN_RESET); //turn on
+
 	  HAL_SPI_TransmitReceive(&hspi1, txBuf, rxBuf, 3, HAL_MAX_DELAY);
 
 	  HAL_GPIO_WritePin(adc_GPIO_Port, adc_Pin, GPIO_PIN_SET); //turn off
 
-	  adc_value = ((rxBuf[1] & 0x03) << 8) | rxBuf[2];
+	  adc_value = ((rxBuf[1] & 0x03) << 8) | rxBuf[2]; // extract bits, ignore garbage
 
-	  HAL_Delay(10);
 
-	  uint32_t pwm_value = (adc_value * 999) / 1023;
+	  float ratio = (float)adc_value / (float)ADC_MAX;
+
+	  uint32_t pwm_value = (uint32_t)(ratio * (PWM_MAX - PWM_MIN)) + PWM_MIN;
 
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwm_value);
 
